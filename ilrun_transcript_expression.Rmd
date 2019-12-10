@@ -2,7 +2,8 @@
 title: "ILRUN transcript expression"
 author: "Marina Alexander"
 date: "10/12/2019"
-output: 
+output:
+  pdf_document: default
   html_document:
     code_folding: hide
 ---
@@ -116,13 +117,20 @@ write.table(hela_expression, file=extracted_hela_expression_file, sep="\t", quot
 
 print(paste0("Expression file was created at ", getwd(), "/", extracted_hela_expression_file))
 
-ilrun_hela <- read_tsv("hela_expression_matrix.tsv")
+hela <- read_tsv("hela_expression_matrix.tsv")
 
-ilrun_hela %>% 
+hela %>% 
+  gather(sample, expression, -GSM1048186) %>% 
+  arrange(desc(expression)) %>%
+  rename(transcript_ID = GSM1048186)
+
+ilrun_hela <- hela %>% 
   gather(sample, expression, -GSM1048186) %>% 
   arrange(desc(expression)) %>%
   rename(transcript_ID = GSM1048186) %>% 
   filter(transcript_ID == "ENST00000374023.8")
+
+ilrun_hela
 
 ```
 
