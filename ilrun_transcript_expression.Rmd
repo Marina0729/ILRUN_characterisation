@@ -1,0 +1,81 @@
+---
+title: "ILRUN transcript expression"
+author: "Marina Alexander"
+date: "10/12/2019"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+
+install.packages("BiocManager")
+BiocManager::install("rhdf5")
+
+
+# remind R where to look for libraries
+.libPaths(c("C:/Users/ale097/Data School/Packages"))
+# load libraries
+library(tidyverse)
+library(knitr)
+library(rhdf5)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = 'center'
+)
+
+```
+
+
+
+
+```{r reading in the data}
+
+# see the content of the human_transcript h5 file
+h5ls("data/human_transcript_v7.h5")
+
+
+```
+
+
+```{r reading spleen data from H5}
+
+
+extracted_expression_file = "Spleen_expression_matrix.tsv"
+
+# Retrieve information from compressed data
+samples = h5read("data/human_transcript_v7.h5", "meta/Sample_geo_accession")
+tissue = h5read("data/human_transcript_v7.h5", "meta/Sample_source_name_ch1")
+transcripts = h5read("data/human_transcript_v7.h5", "meta/transcripts")
+
+
+# Identify columns to be extracted
+samp = c("GSM1342291","GSM1505610","GSM1342284","GSM1342285","GSM1342286","GSM1342288","GSM1505585","GSM2343230","GSM2343387","GSM1010976","GSM1220585","GSM2343570","GSM1120317","GSM2344317","GSM1120316","GSM1335489","GSM2453445","GSM2453444","GSM2492500","GSM2492501","GSM2492502","GSM2492503","GSM2492508","GSM2492509","GSM2492510","GSM2492511","GSM2492516","GSM2492517","GSM2492518","GSM2492519","GSM2637980",
+"GSM2637981","GSM2637982","GSM2637983","GSM2637984","GSM2637985","GSM2637986","GSM2637987","GSM2637988","GSM2637989","GSM2637990","GSM2637991","GSM2637992","GSM2637993","GSM2637994","GSM2637995","GSM2637996","GSM2637997","GSM2637998","GSM2637999","GSM2638000","GSM2638001","GSM2638002","GSM2638003","GSM2638004","GSM2638005","GSM2638006","GSM2638007","GSM2343541","GSM2343886","GSM2343888",
+"GSM2344336","")
+
+sample_locations = which(samples %in% samp)
+
+# extract gene expression from compressed data
+    expression = h5read("data/human_transcript_v7.h5", "data/expression", index=list(1:length(transcripts), sample_locations))
+    H5close()
+    rownames(expression) = transcripts
+    colnames(expression) = samples[sample_locations]
+
+    # Print file
+    write.table(expression, file=extracted_expression_file, sep="\t", quote=FALSE)
+    print(paste0("Expression file was created at ", getwd(), "/", extracted_expression_file))
+    
+```
+
+```{r looking at ILRUN in spleen}
+
+spleen <- read_tsv("Spleen_expression_matrix.tsv")
+
+
+```
+
+
