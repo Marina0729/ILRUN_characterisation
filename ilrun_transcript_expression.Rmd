@@ -50,12 +50,13 @@ tissues <- tissue %>%
 
 Join Geo acession and sample info
 ```{r joining GEO acession and sample info}
+
 metadata <- samples %>%
   as.tibble() %>% 
   bind_cols(as.tibble(tissue)) %>% 
   rename(GEO_accession = value) %>% 
   rename(Tissue = value1) %>%
-  filter(Tissue == "Hela cells")
+  filter(Tissue == "adipose")
 
  # to add in to code chunk above
           # Tissue == "lymph node"|
@@ -88,7 +89,7 @@ metadata <- samples %>%
 ```
 
 
-No ilrun (ENST00000374023.8) or gapdh (ENST00000396861.5)???
+
 ```{r extract ILRUN transcriptS}
 transcripts = h5read("data/human_transcript_v7.h5", "meta/transcripts")
 head(transcripts)
@@ -96,43 +97,50 @@ head(transcripts)
 ilrun_transcripts <- transcripts %>% 
   as.tibble() %>% 
   rename(transcript_name = value) %>% 
-  filter(transcript_name == "ENST00000374021.1"|
+  filter(transcript_name == "ENST00000374023.8"|
            transcript_name == "ENST00000374026.7"|
-           transcript_name == "ENST00000374023.8"|
-           transcript_name == "ENST00000396861.5")
+           transcript_name == "ENST00000374021.1")
 ```
 
-```{r transcript expression}
+```{r transcript expression in adipose tissue}
 
 samp = metadata$GEO_accession
 sample_retrieve = which(samples %in% samp)
-hela_expression = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve))
+adipose_expression = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve))
 H5close()
-rownames(hela_expression) = transcripts
-colnames(hela_expression) = samples[sample_retrieve]
+rownames(adipose_expression) = transcripts
+colnames(adipose_expression) = samples[sample_retrieve]
 
 # Print file
-extracted_hela_expression_file = "hela_expression_matrix.tsv"    
-write.table(hela_expression, file=extracted_hela_expression_file, sep="\t", quote=FALSE)
+extracted_adipose_expression_file = "adipose_expression_matrix.tsv"    
+write.table(adipose_expression, file=extracted_adipose_expression_file, sep="\t", quote=FALSE)
 
-print(paste0("Expression file was created at ", getwd(), "/", extracted_hela_expression_file))
+print(paste0("Expression file was created at ", getwd(), "/", extracted_adipose_expression_file))
 
-hela <- read_tsv("hela_expression_matrix.tsv")
+adipose <- read_tsv("adipose_expression_matrix.tsv")
 
-hela %>% 
-  gather(sample, expression, -GSM1048186) %>% 
+adipose %>% 
+  gather(sample, expression, -GSM742937) %>% 
   arrange(desc(expression)) %>%
-  rename(transcript_ID = GSM1048186)
+  rename(transcript_ID = GSM742937)
 
-ilrun_hela <- hela %>% 
-  gather(sample, expression, -GSM1048186) %>% 
+ilrun_adipose <- adipose %>% 
+  gather(sample, expression, -GSM742937) %>% 
   arrange(desc(expression)) %>%
-  rename(transcript_ID = GSM1048186) %>% 
-  filter(transcript_ID == "ENST00000374023.8")
+  rename(transcript_ID = GSM742937) %>% 
+  filter(str_detect(transcript_ID, "ENST0000037402")) %>% 
+  group_by(transcript_ID) %>% 
+  summarise(mean_adipose = mean(expression), sd_adipose = sd(expression)) %>% 
+  filter(mean_adipose >1) %>% 
+  filter(transcript_ID != "ENST00000374024.3")
 
-ilrun_hela
 
 ```
 
+```{r analysis for all tissues}
+
+
+
+```
 
 
