@@ -30,7 +30,6 @@ List the contents of the .h5 file
 ```{r list the contents}
 h5ls("data/human_transcript_v7.h5")
 
-
 ```
 Retrieve Gene Expression Omnibus info from matrix
 ```{r GEO accession}
@@ -44,8 +43,6 @@ Retreive sample information and tissue from matrix
 ```{r sample information}
 tissue = h5read("data/human_transcript_v7.h5", "meta/Sample_source_name_ch1")
 
-tissues <- tissue %>%
-  as.tibble()
 ```
 
 Join Geo acession and sample info
@@ -56,7 +53,8 @@ metadata <- samples %>%
   bind_cols(as.tibble(tissue)) %>% 
   rename(GEO_accession = value) %>% 
   rename(Tissue = value1) %>%
-  filter(Tissue == "adipose")
+  filter(Tissue == "Macrophages") %>% 
+  filter(str_detect(GEO_accession, "GSM1896"))
 
  # to add in to code chunk above
           # Tissue == "lymph node"|
@@ -97,48 +95,53 @@ head(transcripts)
 ilrun_transcripts <- transcripts %>% 
   as.tibble() %>% 
   rename(transcript_name = value) %>% 
-  filter(transcript_name == "ENST00000374023.8"|
+  filter(transcript_name == "ENST00000374023.7"|
            transcript_name == "ENST00000374026.7"|
            transcript_name == "ENST00000374021.1")
 ```
 
-```{r transcript expression in adipose tissue}
+```{r transcript expression in extracted tissue}
+samp_ni = c("GSM1896082", "GSM1896085", "GSM1896088", "GSM1896091", "GSM1896094", "GSM1896097", "GSM1896100", "GSM1896103", "GSM1896106", "GSM1896112", "GSM1896115", "GSM1896118", "GSM1896121", "GSM1896124", "GSM1896127", "GSM1896130", "GSM1896109")
 
-samp = metadata$GEO_accession
-sample_retrieve = which(samples %in% samp)
-adipose_expression = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve))
+samp_inf = c("GSM1896083", "GSM1896086", "GSM1896089", "GSM1896092", "GSM1896095", "GSM1896098", "GSM1896101", "GSM1896104", "GSM1896107", "GSM1896110", "GSM1896113", "GSM1896116", "GSM1896119", "GSM1896122", "GSM1896125", "GSM1896128")
+
+sample_retrieve_ni = which(samples %in% samp_ni)
+
+sample_retrieve_inf = which(samples %in% samp_inf)
+
+expression_ni = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_ni))
 H5close()
-rownames(adipose_expression) = transcripts
-colnames(adipose_expression) = samples[sample_retrieve]
+rownames(expression_ni) = transcripts
+colnames(expression_ni) = samples[sample_retrieve_ni]
 
-# Print file
-extracted_adipose_expression_file = "adipose_expression_matrix.tsv"    
-write.table(adipose_expression, file=extracted_adipose_expression_file, sep="\t", quote=FALSE)
+expression_inf = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_inf))
+H5close()
+rownames(expression_inf) = transcripts
+colnames(expression_inf) = samples[sample_retrieve_inf]
 
-print(paste0("Expression file was created at ", getwd(), "/", extracted_adipose_expression_file))
-
-adipose <- read_tsv("adipose_expression_matrix.tsv")
-
-adipose %>% 
-  gather(sample, expression, -GSM742937) %>% 
-  arrange(desc(expression)) %>%
-  rename(transcript_ID = GSM742937)
-
-ilrun_adipose <- adipose %>% 
-  gather(sample, expression, -GSM742937) %>% 
-  arrange(desc(expression)) %>%
-  rename(transcript_ID = GSM742937) %>% 
-  filter(str_detect(transcript_ID, "ENST0000037402")) %>% 
-  group_by(transcript_ID) %>% 
-  summarise(mean_adipose = mean(expression), sd_adipose = sd(expression)) %>% 
-  filter(mean_adipose >1) %>% 
-  filter(transcript_ID != "ENST00000374024.3")
+expression_ni %>% 
+  as.data.frame()
 
 
+  
 ```
 
-```{r analysis for all tissues}
 
+```{r subsetting the data}
+tissue_subset %>% 
+  gather(sample, expression, -GSM1896130) %>% 
+  arrange(desc(expression)) %>%
+  rename(transcript_ID = GSM1896130)
+
+ilrun <- tissue_subset %>% 
+  gather(sample, expression, -GSM1896130) %>% 
+  arrange(desc(expression)) %>%
+  rename(transcript_ID = GSM1896130) %>%
+  filter(transcript_ID == "ENST00000374023.7"| transcript_ID == "ENST00000374026.7", transcript_ID == "ENST00000374021.1")
+  group_by(transcript_ID) %>% 
+  summarise(mean = mean(expression), sd = sd(expression)) %>% 
+  filter(mean >1) %>% 
+  mutate(coeff_var = (sd/mean))
 
 
 ```
