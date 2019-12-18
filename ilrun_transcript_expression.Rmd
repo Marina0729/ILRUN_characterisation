@@ -26,17 +26,15 @@ knitr::opts_chunk$set(
 )
 ```
 
-List the contents of the .h5 file
+List the contents of the .h5 file downloaded from ARChS4 webserver
+
 ```{r list the contents}
 h5ls("data/human_transcript_v7.h5")
 
 ```
-Retrieve Gene Expression Omnibus info from matrix
+Retrieve Gene Expression Omnibus (GEO) Aceession from matrix
 ```{r GEO accession}
 samples = h5read("data/human_transcript_v7.h5", "meta/Sample_geo_accession")
-
-samples %>% 
-  as.tibble
 
 ```
 Retreive sample information and tissue from matrix
@@ -45,16 +43,14 @@ tissue = h5read("data/human_transcript_v7.h5", "meta/Sample_source_name_ch1")
 
 ```
 
-Join Geo acession and sample info
+Join Geo acession and sample info to allow searching for interesting datasets
 ```{r joining GEO acession and sample info}
-
 metadata <- samples %>%
   as.tibble() %>% 
   bind_cols(as.tibble(tissue)) %>% 
   rename(GEO_accession = value) %>% 
   rename(Tissue = value1) %>%
-  filter(Tissue == "Macrophages") %>% 
-  filter(str_detect(GEO_accession, "GSM1896"))
+  filter(str_detect(Tissue, "Spleen"))
 
  # to add in to code chunk above
           # Tissue == "lymph node"|
@@ -83,25 +79,25 @@ metadata <- samples %>%
           # Tissue == "Plasma cell"|
           # Tissue == "Thymus")
 
-
+metadata
 ```
 
+```{r retreive transcript information}
 
-
-```{r extract ILRUN transcriptS}
 transcripts = h5read("data/human_transcript_v7.h5", "meta/transcripts")
-head(transcripts)
 
-ilrun_transcripts <- transcripts %>% 
-  as.tibble() %>% 
-  rename(transcript_name = value) %>% 
-  filter(transcript_name == "ENST00000374023.7"|
-           transcript_name == "ENST00000374026.7"|
-           transcript_name == "ENST00000374021.1")
 ```
 
-```{r transcript expression in extracted tissue}
-samp_ni = c("GSM1896082", "GSM1896085", "GSM1896088", "GSM1896091", "GSM1896094", "GSM1896097", "GSM1896100", "GSM1896103", "GSM1896106", "GSM1896112", "GSM1896115", "GSM1896118", "GSM1896121", "GSM1896124", "GSM1896127", "GSM1896130", "GSM1896109")
+# Widespread Shortening of 3' Untranslated Regions and Increased Exon Inclusion Are Evolutionarily Conserved Features of Innate Immune Responses to Infection. 
+PLoS Genet 2016 Sep;12(9)
+</br>
+Study design:	Transcriptomic profiles of 198 infected (Listeria and Salmonella) and non-infected samples at multiple time points.
+</br>
+Intro: Changes in gene regulation have long been known to play important roles in both innate and adaptive immune responses. However, post-transcriptional mechanisms involved in mRNA processing have been poorly studied despite emerging examples of their role as regulators of immune defenses. We sought to investigate the role of mRNA processing in the cellular responses of human macrophages to live bacterial infections.
+
+```{r transcript expression in cultured macrophages}
+
+samp_ni = c("GSM1896082", "GSM1896085", "GSM1896088", "GSM1896091", "GSM1896094", "GSM1896097", "GSM1896100", "GSM1896103", "GSM1896106", "GSM1896112", "GSM1896115", "GSM1896118", "GSM1896121", "GSM1896124", "GSM1896127", "GSM1896130")
 
 samp_inf = c("GSM1896083", "GSM1896086", "GSM1896089", "GSM1896092", "GSM1896095", "GSM1896098", "GSM1896101", "GSM1896104", "GSM1896107", "GSM1896110", "GSM1896113", "GSM1896116", "GSM1896119", "GSM1896122", "GSM1896125", "GSM1896128")
 
@@ -119,31 +115,681 @@ H5close()
 rownames(expression_inf) = transcripts
 colnames(expression_inf) = samples[sample_retrieve_inf]
 
-expression_ni %>% 
-  as.data.frame()
+Macrophage_inf <- data.frame(names = row.names(expression_inf), expression_inf)%>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>% 
+  mutate(treatment = "Salmonella") %>% 
+    mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b")))
+
+Macrophage_ni <- data.frame(names = row.names(expression_ni), expression_ni) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>% 
+  mutate(treatment = "Uninfected") %>% 
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b")))
+
+Macrophage <- bind_rows(Macrophage_inf, Macrophage_ni)
+
+ggplot(Macrophage, aes( x= isoform, y = expn, color = treatment)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in cultured macrophages infected with Salmonella", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+```
+
+# De novo RNA sequence assembly during in vivo inflammatory stress reveals hundreds of unannotated lincRNAs in human blood CD14<sup>+</sup> monocytes and in adipose tissue.
+Physiol Genomics 2017 Jun 1;49(6):287-305.
+</br>
+Study design: Gluteal subcutaneous adipose from 25 healthy subjects were sequenced by Illumina HiSeq 2000 with poly-A selection.
+</br>
+Intro: 	Through deep RNA-seq in human subcutaneous adipose bioposies and established long noncoding RNAs (lincRNAs) annotations, we identified human lincRNAs expressed in all subjects, including subsets of lincRNAs that exhibit differential expression by sex and race. Our comprehensive profiling on subcutaneous adipose lincRNA transcriptome provides great resource to advance novel understanding of genetic regulation in adipose biology.
 
 
+```{r transcript expression in adipose tissue}
+
+GSE76404_meta <- read.csv("data/GSE76404_adipose_LPS_metadata.csv") %>%
+  select(race, GEO_Accession, sex, treatment, inflammatory_response, tissue) %>% 
+  rename(GEO = GEO_Accession)
   
+samp = GSE76404_meta$GEO
+
+sample_retrieve_adipose = which(samples %in% samp)
+
+expression_adipose = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_adipose))
+H5close()
+rownames(expression_adipose) = transcripts
+colnames(expression_adipose) = samples[sample_retrieve_adipose]
+
+lps <- data.frame(names = row.names(expression_adipose), expression_adipose) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE76404_meta, by = "GEO")
+
+GSE76404 <- data.frame(names = row.names(expression_adipose), expression_adipose) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE76404_meta, by = "GEO") %>% 
+  filter(treatment == "baseline")
+
+ggplot(lps, aes( x= isoform, y = expn, color = inflammatory_response)) +
+  geom_boxplot()+
+  labs(title = "ilrun isoform expression in adipose tissue stimulated in-vivo with LPS", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggplot(GSE76404, aes( x= isoform, y = expn)) +
+  geom_boxplot()+
+  labs(title = "ilrun isoform expression in adipose tissue stimulated in-vivo with LPS", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+
+
+```
+
+# A cell-based systems biology assessment of human blood to monitor immune responses after influenza vaccination.
+PLoS One 2015;10(2):e0118528.
+</br>
+Study design: PBMC and six purified cell types from two vaccinated donors were isolated prior to (d0) and at days 1, 3, and 7 post-TIV vaccination for RNA-seq analysis
+</br>
+Intro: Systems biology is an approach to comprehensively study complex interactions within a biological system. Most published systems vaccinology studies have utilized whole blood or peripheral blood mononuclear cells (PBMC) to monitor the immune response after vaccination. Because human blood is comprised of multiple hematopoietic cell types, the potential for masking responses of under-represented cell populations is increased when analyzing whole blood or PBMC. To investigate the contribution of individual cell types to the immune response after vaccination, we established a rapid and efficient method to purify human T and B cells, natural killer (NK) cells, myeloid dendritic cells (mDC), monocytes, and neutrophils from fresh venous blood. Purified cells were fractionated and processed in a single day. RNA-Seq and quantitative shotgun proteomics were performed to determine expression profiles for each cell type prior to and after inactivated seasonal influenza vaccination. Our results show that transcriptomic and proteomic profiles generated from purified immune cells differ significantly from PBMC. Differential expression analysis for each immune cell type also shows unique transcriptomic and proteomic expression profiles as well as changing biological networks at early time points after vaccination. This cell type-specific information provides a more comprehensive approach to monitor vaccine responses.
+
+```{r ilrun expression in blood cells of influenza vaccinated individuals }
+
+GSE64655_meta <- read.csv("data/GSE64655_PBMC_fluvac_metadata.csv") %>%
+  select(Cell_type, GEO_Accession, donor, source_name, time) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE64655 = GSE64655_meta$GEO
+
+sample_retrieve_GSE64655 = which(samples %in% sampGSE64655)
+
+expression_GSE64655 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE64655))
+H5close()
+rownames(expression_GSE64655) = transcripts
+colnames(expression_GSE64655) = samples[sample_retrieve_GSE64655]
+
+GSE64655 <- data.frame(names = row.names(expression_GSE64655), expression_GSE64655) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE64655_meta, by = "GEO")
+
+
+ggplot(GSE64655, aes( x= isoform, y = expn, color = source_name)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in different cell types", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggplot(GSE64655, aes( x= isoform, y = expn, color = time)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in PBMCs post vaccination", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+
+```
+
+# RNA-Seq profiling of 29 immune cell types and peripheral blood mononuclear cells
+</br>
+Study design: Total RNA of 29 immune cell types (from 4 individuals) and peripheral blood mononuclear cells (PBMCs, from 13 individuals) was extracted for gene expression profiling. The 13 PBMCs samples were processed with both microarray and RNA-Seq platforms.
+</br>
+Intro: 	We performed RNA-Seq transcriptome profiling on 29 immune cell types consituting peripheral blood mononuclear cells (PBMCs) sorted from 4 Singaporean-Chinese individuals (S4 cohort). We also performed RNA-Seq and microarray transcriptome profiling of PBMCs from an extended cohort of 13 individuals (S13 cohort). The data was used first to characterize the transcriptomic signatures and relationships among the 29 immune cell types. Then we explored the difference in mRNA composition in terms of transcripts proportions and abundance. Lastly, we performed deep deconvolution for both microarray and RNA-Seq technologies.
+```{r ilrun expression in different immune cell types}
+
+GSE107011_meta <- read.csv("data/GSE107011_PBMC_metadata.csv") %>%
+  select(Cell_type, GEO_Accession, disease_status, gender) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE107011 = GSE107011_meta$GEO
+
+sample_retrieve_GSE107011 = which(samples %in% sampGSE107011)
+
+expression_GSE107011 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE107011))
+H5close()
+rownames(expression_GSE107011) = transcripts
+colnames(expression_GSE107011) = samples[sample_retrieve_GSE107011]
+
+GSE107011 <- data.frame(names = row.names(expression_GSE107011), expression_GSE107011) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE107011_meta, by = "GEO") %>% 
+  filter(names != "NA") %>% 
+  filter(Cell_type != "PBMCs") %>% 
+  filter(Cell_type != "") %>% 
+  filter(Cell_type != "Classical monocytes") %>% 
+  filter(Cell_type != "MAIT cells") %>% 
+  filter(Cell_type != "Switched memory B cells") %>% 
+  filter(Cell_type != "Th17 cells") %>% 
+  filter(Cell_type != "Effector memory CD8 T cells")
+
+
+ggplot(GSE107011, aes( x= isoform, y = expn, color = Cell_type)) +
+  geom_boxplot() +
+  scale_colour_brewer(palette = "Set1")+
+  labs(title = "ilrun isoform expression in different immune cell types", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+```
+
+# Long non-coding RNAs display higher natural expression variation than protein-coding genes in healthy humans. 
+Genome Biol 2016 Jan 29;17:14.
+</br>
+Study design: We used PolyA+ RNA-seq data from human primary granulocytes of 10 healthy individuals to de novo annotate lncRNAs and mRNAs in this cell type and ribosomal depleted (total) RNA-seq data from seven of these individuals sampled three times to analyze lncRNA amd mRNA expression variability
+</br>
+Intro: We annotate granulocyte lncRNAs and mRNAs in RNA-seq data from ten healthy individuals, identifying multiple lncRNAs absent from reference annotations, and use this to investigate three known features (higher tissue-specificity, lower expression, and reduced splicing efficiency) of lncRNAs relative to mRNAs. Expression variability was examined in seven individuals sampled three times at one or more than one month intervals. We show that lncRNAs display significantly more inter-individual expression variability compared to mRNAs. We confirm this finding in 2 independent human datasets by analyzing multiple tissues from the GTEx project and lymphoblastoid cell lines from the GEUVADIS project. Using the latter dataset we also show that including more human donors into the transcriptome annotation pipeline allows identification of an increasing number of lncRNAs, but minimally affects mRNA gene number.
+
+```{r ilrun in primary human granulocytes}
+
+GSE70390_meta<- read.csv("data/GSE70390_granulocyte_metadata.csv") %>%
+  select(Cell_type, GEO_Accession) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE70390 = GSE70390_meta$GEO
+
+sample_retrieve_GSE70390 = which(samples %in% sampGSE70390)
+
+expression_GSE70390 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE70390))
+H5close()
+rownames(expression_GSE70390) = transcripts
+colnames(expression_GSE70390) = samples[sample_retrieve_GSE70390]
+
+GSE70390 <- data.frame(names = row.names(expression_GSE70390), expression_GSE70390) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE70390_meta, by = "GEO")
+
+
+ggplot(GSE70390, aes( x= isoform, y = expn)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in granulocytes", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+
+```
+
+# RORγt inhibition selectively targets IL-17 producing iNKT and γδ-T cells enriched in Spondyloarthritis patients.
+Nat Commun 2019 Jan 2;10(1):9.
+</br>
+Study design: 	iNKT (CD3+TCRVb11+6B11+), γδ-T (CD3+TCRγδ+) cells and Tconv (CD3+CD161-; negative for iNKT and γδ-T markers) cells were sorted from peripheral blood samples of SpA patients (n=7) and RA patients (n=5). Sequence-libraries of each sample were sequenced on a NextSeq500 system (Illumina).
+</br>
+Intro: Dysregulated IL-23/IL-17 responses have been linked to psoriatic arthritis and other forms of spondyloarthritides (SpA). RORγt, the key Thelper17 (Th17) cell transcriptional regulator, is also expressed by subsets of innate-like T cells, including invariant natural killer T (iNKT) and γδ-T cells, but how they contribute to disorders such as SpA is still unclear. Here we describe the presence of particular RORγt+T-betloPLZF- iNKT and γδ-hi T cell subsets in healthy peripheral blood. RORγt+ iNKT and γδ-hi T cells showed profound IL-23 mediated Th17-like immune responses and were clearly enriched within inflamed joints of SpA patients where they act as major IL-17 secretors. SpA derived iNKT and γδ-T cells showed a unique Th17 skewed phenotype and gene expression profile. Strikingly, RORγt inhibition blocked γδ17 and iNKT17 cell function while selectively sparing IL-22+ subsets. Overall, these findings highlight a unique diversity of human RORγt+ T cells and underscore the potential of RORγt antagonism to modulate aberrant type 17 responses.
+
+
+```{r gamma delta T cells in arthritis}
+
+GSE122624_meta<- read.csv("data/GSE122624_gammadelta_metadata.csv") %>%
+  select(cell, GEO_Accession, disease_state) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE122624 = GSE122624_meta$GEO
+
+sample_retrieve_GSE122624 = which(samples %in% sampGSE122624)
+
+expression_GSE122624 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE122624))
+H5close()
+rownames(expression_GSE122624) = transcripts
+colnames(expression_GSE122624) = samples[sample_retrieve_GSE122624]
+
+GSE122624 <- data.frame(names = row.names(expression_GSE122624), expression_GSE122624) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE122624_meta, by = "GEO") %>% 
+  filter(names != "NA")
+
+
+ggplot(GSE122624, aes( x= isoform, y = expn, color = cell)) +
+  geom_boxplot() +
+  scale_colour_brewer(palette = "Set1")+
+  labs(title = "ilrun isoform expression in arthritis", 
+       x = "ilrun isoform",
+       y = "transcript expression") +
+  facet_wrap(~ disease_state)
+```
+
+# Intrinsic Immunity Shapes Viral Resistance of Stem Cells
+Cell 2018 Jan 25;172(3):423-438
+</br>
+Study design: mRNA profiles for hESC-derived cells and primary cells were generated by deep sequencing, in duplicate or triplicate, using IlluminaHiSeq 2000.
+</br>
+Intro: Numerous studies have demonstrated that stem cells are more resistant to virus infection than their differentiated progenies; however, the nature of this differential virus resistance remains a mystery. Here we analyzed gene expression in both mammalian stem cells and cells at various stages of differentiation. We found that stem cells intrinsically express a subset of interferon stimulated genes (ISGs) and that this property is conserved across species. We show that ISG expression is truly intrinsic, as stem cells are refractory to interferon (IFN). Further, ISG expression varies in a cell type-specific manner and decreases as cells differentiate. We show that once cell differentiate they become IFN-responsive and a broad spectrum of ISGs are then induced by canonical IFN signaling. Importantly, we also show that intrinsically expressed ISGs protect stem cells from virus infection. Finally, we performed in vivo experiments to show that protecting stem cells from virus infection is critical because stem cells are needed to regenerate tissues damaged by virus infection. Our findings have important implications for understanding both stem cell biology and the evolution of innate immunity.
+
+
+```{r ilrun expression in stem cells}
+
+GSE97987_meta<- read.csv("data/GSE97987_stemcells_metadata.csv") %>%
+  select(source_name, GEO_Accession, age.passage) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE97987 = GSE97987_meta$GEO
+
+sample_retrieve_GSE97987 = which(samples %in% sampGSE97987)
+
+expression_GSE97987 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE97987))
+H5close()
+rownames(expression_GSE97987) = transcripts
+colnames(expression_GSE97987) = samples[sample_retrieve_GSE97987]
+
+GSE97987 <- data.frame(names = row.names(expression_GSE97987), expression_GSE97987) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE97987_meta, by = "GEO") %>% 
+  mutate(potency = str_replace_all(source_name, c("Embryonic stem cells" = "pluripotent", "Induced pluripotent stem cells" = "pluripotent", "Mesoderm cells" = "pluripotent", "Ectoderm cells" = "pluripotent", "Mesoderm cells" = "pluripotent", "Endoderm cells" = "pluripotent", "Hematopoietic stem cells" = "multipotent", "Neural stem cell" = "multipotent", "Hepatic stem cells" = "multipotent", "Pancreatic stem cells" = "multipotent", "mesenchymal stem cells" = "multipotent", "Pro-erythrocyte" = "differentiated", "Early basophilic-erythrocyte" = "differentiated", "Late basophilic-erythrocyte" = "differentiated", "Pro-erythrocyte" = "differentiated" , "Pro-erythrocyte" = "differentiated", "Polychromatic normoblast" = "differentiated", "Orthochromatic normoblast" = "differentiated", "Neuron-like cells" = "differentiated", "Myofibroblast" = "differentiated","Pancreatic beta-like cells" = "differentiated", "Hepatocyte-like cells" = "differentiated", "Immature hepatocyte" = "differentiated" )))
+
+
+ggplot(GSE97987, aes( x= isoform, y = expn, color = potency)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in stem cells", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+```
+
+# 	Gene Expression Profiling Of TTLL12 Knocked Down Cell With Sendai Virus Treatment
+J Immunol 2017 Feb 1;198(3):1274-1284.
+</br>
+Study design: TTLL12 was knocked down by siRNA in HCT116 and the gene expression profile was studied by RNA sequencing
+</br>
+Intro: 	Upon virus infection, RIG-I-like receptors in host cells recognize viral RNA and activate type I interferon expression. To investigate the role of protein methylation in the anti-viral signaling pathway, we screened all the SET domain containing proteins and identified TTLL12 as a negative regulator of RIG-I signaling pathway. TTLL12 contains SET and TTL domains, which are predicted to have lysine methyltransferase and tubulin tyrosine ligase activities, respectively. Exogenous expression of TTLL12 represses IFN-β expression induced by SeV. TTLL12 deficiency by RNA interference and CRISPR-gRNA techniques increases the induced IFN-β expression and inhibits virus replication in the cell. Gene expression profiling also indicated that TTLL12 specifically inhibits the expression of the downstream genes of innate immunity pathways. Cell fractionation and fluorescent staining indicated that TTLL12 is localized in the cytosol. The study of various mutants suggested TTLL12’s ability to repress RIG-I pathway is probably not dependent on protein modifications. Instead, TTLL12 directly interacts with VISA, TBK1 and IKKε, and inhibits the interactions of VISA with other signaling proteins. Taken together, our findings demonstrate TTLL12 as a negative regulator of RNA-virus-induced type I IFNs expression through inhibition of the interaction of VISA with other proteins.
+
+```{r ilrun isoform expression in a colon cancer cell line infected with Sendai virus}
+
+GSE83849_meta<- read.csv("data/GSE83849_sendaivirus_metadata.csv") %>%
+  select(source_name, GEO_Accession, Genotype) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE83849 = GSE83849_meta$GEO
+
+sample_retrieve_GSE83849 = which(samples %in% sampGSE83849)
+
+expression_GSE83849 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE83849))
+H5close()
+rownames(expression_GSE83849) = transcripts
+colnames(expression_GSE83849) = samples[sample_retrieve_GSE83849]
+
+GSE83849 <- data.frame(names = row.names(expression_GSE83849), expression_GSE83849) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE83849_meta, by = "GEO") %>% 
+  separate(source_name, into = c("siRNA", "virus"), sep = "\\," ) %>% 
+  filter(isoform == "a") %>% 
+  mutate(Genotype = fct_relevel(Genotype, "wildtype", "siTTLL12")) %>% 
+  select(-siRNA)
+
+
+plot_sendai <- ggplot(GSE83849, aes( x= Genotype, y = expn, color = virus)) +
+  geom_point( size = 2) +
+  labs(title = "ilrun isoform a expression in HCT116 cells", 
+       x = "Genotype",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_IFN_Sendai.png", plot = plot_sendai, width = 15, height = 15, dpi = 600, units = "cm")
+
 ```
 
 
-```{r subsetting the data}
-tissue_subset %>% 
-  gather(sample, expression, -GSM1896130) %>% 
-  arrange(desc(expression)) %>%
-  rename(transcript_ID = GSM1896130)
+```{r ilrun expression in thymus tissue}
 
-ilrun <- tissue_subset %>% 
-  gather(sample, expression, -GSM1896130) %>% 
-  arrange(desc(expression)) %>%
-  rename(transcript_ID = GSM1896130) %>%
-  filter(transcript_ID == "ENST00000374023.7"| transcript_ID == "ENST00000374026.7", transcript_ID == "ENST00000374021.1")
-  group_by(transcript_ID) %>% 
-  summarise(mean = mean(expression), sd = sd(expression)) %>% 
-  filter(mean >1) %>% 
-  mutate(coeff_var = (sd/mean))
+GSE57982_meta<- read.csv("data/GSE57982_thymus_metadata.csv") %>%
+  select(GEO_Accession, tissue) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE57982 = GSE57982_meta$GEO
+
+sample_retrieve_GSE57982 = which(samples %in% sampGSE57982)
+
+expression_GSE57982 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE57982))
+H5close()
+rownames(expression_GSE57982) = transcripts
+colnames(expression_GSE57982) = samples[sample_retrieve_GSE57982]
+
+GSE57982 <- data.frame(names = row.names(expression_GSE57982), expression_GSE57982) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE57982_meta, by = "GEO")
+
+
+ggplot(GSE57982, aes( x= isoform, y = expn)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in thymus", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
 
 
 ```
 
+```{r ilrun expression in muscle, kitdney, brain}
+
+GSE49379_meta<- read.csv("data/GSE49379_muscle_kidney_brain_metadata.csv") %>%
+  select(tissue, sex, GEO_Accession, Organism) %>% 
+  rename(GEO = GEO_Accession) %>% 
+  filter(Organism == "Homo sapiens")
+  
+sampGSE49379 = GSE49379_meta$GEO
+
+sample_retrieve_GSE49379 = which(samples %in% sampGSE49379)
+
+expression_GSE49379 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE49379))
+H5close()
+rownames(expression_GSE49379) = transcripts
+colnames(expression_GSE49379) = samples[sample_retrieve_GSE49379]
+
+GSE49379 <- data.frame(names = row.names(expression_GSE49379), expression_GSE49379) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE49379_meta, by = "GEO") %>% 
+  mutate(tissue = str_replace_all(tissue, c("cerebellar cortex" = "brain", "prefrontal cortex" = "brain", "primary visual cortex" = "brain")))
+
+
+ggplot(GSE49379, aes( x= isoform, y = expn, color = tissue)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in muscle, kidney and brain", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+
+
+```
+
+```{r ilrun expression in pancreas}
+
+GSE83139_meta<- read.csv("data/GSE83139_singlecell_pancreas_metadata.csv") %>%
+  select(curated.cell.type, Age, GEO_Accession, tissue, health) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE83139 = GSE83139_meta$GEO
+
+sample_retrieve_GSE83139 = which(samples %in% sampGSE83139)
+
+expression_GSE83139 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE83139))
+H5close()
+rownames(expression_GSE83139) = transcripts
+colnames(expression_GSE83139) = samples[sample_retrieve_GSE83139]
+
+GSE83139 <- data.frame(names = row.names(expression_GSE83139), expression_GSE83139) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE83139_meta, by = "GEO") %>% 
+  filter(expn > 10) %>% 
+  filter(health == "control")
+
+
+ggplot(GSE83139, aes( x= isoform, y = expn)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  labs(title = "ilrun isoform expression in single-cell sorted pancreas", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave
+
+
+```
+
+```{r another crack at pancreas}
+ 
+GSE85241_meta<- read.csv("data/GSE85241_pancreas_metadata.csv") %>%
+  select(GEO_Accession, tissue) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE85241 = GSE85241_meta$GEO
+
+sample_retrieve_GSE85241 = which(samples %in% sampGSE85241)
+
+expression_GSE85241 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE85241))
+H5close()
+rownames(expression_GSE85241) = transcripts
+colnames(expression_GSE85241) = samples[sample_retrieve_GSE85241]
+
+GSE85241 <- data.frame(names = row.names(expression_GSE85241), expression_GSE85241) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE85241_meta, by = "GEO")
+
+
+plot_GSE85241 <- ggplot(GSE85241, aes( x= isoform, y = expn)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in pancreas", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_pancreas_GSE85241.png", plot = plot_GSE85241, width = 15, height = 15, dpi = 600, units = "cm")
+
+```
+
+```{r ilrun expression in liver hepatocytes}
+
+GSE105127_meta<- read.csv("data/GSE105127_liver_metadata.csv") %>%
+  select(GEO_Accession, tissue, hepatic_zone, Assay.Type) %>% 
+  rename(GEO = GEO_Accession) %>% 
+  filter(Assay.Type == "RNA-Seq")
+  
+sampGSE105127 = GSE105127_meta$GEO
+
+sample_retrieve_GSE105127 = which(samples %in% sampGSE105127)
+
+expression_GSE105127 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE105127))
+H5close()
+rownames(expression_GSE105127) = transcripts
+colnames(expression_GSE105127) = samples[sample_retrieve_GSE105127]
+
+GSE105127 <- data.frame(names = row.names(expression_GSE105127), expression_GSE105127) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE105127_meta, by = "GEO") %>% 
+  filter(isoform != "NA")
+
+
+plot_GSE105127 <- ggplot(GSE105127, aes( x= isoform, y = expn, heaptic_zone)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in liver", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_liver_GSE105127.png", plot = plot_GSE105127, width = 15, height = 15, dpi = 600, units = "cm")
+
+```
+
+```{r ilrun expression in lung tissue}
+
+GSE52463_meta<- read.csv("data/GSE52463_lung_metadata.csv") %>%
+  select(GEO_Accession, tissue) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE52463 = GSE52463_meta$GEO
+
+sample_retrieve_GSE52463 = which(samples %in% sampGSE52463)
+
+expression_GSE52463 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE52463))
+H5close()
+rownames(expression_GSE52463) = transcripts
+colnames(expression_GSE52463) = samples[sample_retrieve_GSE52463]
+
+GSE52463 <- data.frame(names = row.names(expression_GSE52463), expression_GSE52463) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE52463_meta, by = "GEO")
+
+
+plot_GSE52463 <- ggplot(GSE52463, aes( x= isoform, y = expn)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in lung", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_lung_GSE52463.png", plot = plot_GSE52463, width = 15, height = 15, dpi = 600, units = "cm")
+
+```
+
+```{r ilrun expression in testis}
+
+GSE74896_meta<- read.csv("data/GSE74896_testis_metadata.csv") %>%
+  select(GEO_Accession, tissue, Cell_type, source_name) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE74896 = GSE74896_meta$GEO
+
+sample_retrieve_GSE74896 = which(samples %in% sampGSE74896)
+
+expression_GSE74896 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE74896))
+H5close()
+rownames(expression_GSE74896) = transcripts
+colnames(expression_GSE74896) = samples[sample_retrieve_GSE74896]
+
+GSE74896 <- data.frame(names = row.names(expression_GSE74896), expression_GSE74896) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE74896_meta, by = "GEO")
+
+
+plot_GSE74896 <- ggplot(GSE74896, aes( x= isoform, y = expn, color = source_name)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in testis", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_testis_cells_GSE74896.png", plot = plot_GSE74896, width = 15, height = 15, dpi = 600, units = "cm")
+
+```
+
+```{r ilrun expression in mammary tissue}
+
+GSE103001_meta<- read.csv("data/GSE103001_mammary_metadata.csv") %>%
+  select(GEO_Accession, source_name) %>% 
+  rename(GEO = GEO_Accession) %>% 
+  rename(tissue = source_name)
+  
+sampGSE103001 = GSE103001_meta$GEO
+
+sample_retrieve_GSE103001 = which(samples %in% sampGSE103001)
+
+expression_GSE103001 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE103001))
+H5close()
+rownames(expression_GSE103001) = transcripts
+colnames(expression_GSE103001) = samples[sample_retrieve_GSE103001]
+
+GSE103001 <- data.frame(names = row.names(expression_GSE103001), expression_GSE103001) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE103001_meta, by = "GEO") %>% 
+  mutate(tissue = str_replace_all(tissue, "mammary tissue", "mammary"))
+
+
+plot_GSE103001 <- ggplot(GSE103001, aes( x= isoform, y = expn)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in mammary tissue", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_mammary_GSE103001.png", plot = plot_GSE103001, width = 15, height = 15, dpi = 600, units = "cm")
+
+
+```
+
+```{r ilrum expression in ovarian granulosa cells}
+
+GSE62093_meta<- read.csv("data/GSE62093_mammary_metadata.csv") %>%
+  select(GEO_Accession, source_name) %>% 
+  rename(GEO = GEO_Accession) %>% 
+  rename(tissue = source_name) %>% 
+  mutate(tissue = str_replace_all(tissue, "ovarian granulosa cells", "ovary"))
+  
+sampGSE62093 = GSE62093_meta$GEO
+
+sample_retrieve_GSE62093 = which(samples %in% sampGSE62093)
+
+expression_GSE62093 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE62093))
+H5close()
+rownames(expression_GSE62093) = transcripts
+colnames(expression_GSE62093) = samples[sample_retrieve_GSE62093]
+
+GSE62093 <- data.frame(names = row.names(expression_GSE62093), expression_GSE62093) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE62093_meta, by = "GEO")
+
+
+plot_GSE62093 <- ggplot(GSE62093, aes( x= isoform, y = expn)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in ovary", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_ovary_GSE62093.png", plot = plot_GSE62093, width = 15, height = 15, dpi = 600, units = "cm")
+
+```
+
+```{r ilrun expression in spleen and other tissues}
+
+GSE61474_meta<- read.csv("data/GSE61474_spleen_others_metadata.csv") %>%
+  select(GEO_Accession, tissue) %>% 
+  rename(GEO = GEO_Accession)
+  
+sampGSE61474 = GSE61474_meta$GEO
+
+sample_retrieve_GSE61474 = which(samples %in% sampGSE61474)
+
+expression_GSE61474 = h5read("data/human_transcript_v7.h5", "data/expression", index = list(1:length(transcripts), sample_retrieve_GSE61474))
+H5close()
+rownames(expression_GSE61474) = transcripts
+colnames(expression_GSE61474) = samples[sample_retrieve_GSE61474]
+
+GSE61474 <- data.frame(names = row.names(expression_GSE61474), expression_GSE61474) %>% 
+  filter(names == "ENST00000374023.7"| names == "ENST00000374026.7"| names == "ENST00000374021.1") %>% 
+  gather(GEO, expn, -names) %>%
+  mutate(isoform = str_replace_all(names, c("ENST00000374023.7" = "a", "ENST00000374021.1" = "no 3'UTR", "ENST00000374026.7" = "b"))) %>% 
+  full_join(GSE61474_meta, by = "GEO") %>% 
+  filter(isoform != "NA") %>% 
+  filter(tissue != "") %>% 
+  filter(tissue == "Spleen")
+
+
+plot_GSE61474 <- ggplot(GSE61474, aes( x= isoform, y = expn, color = tissue)) +
+  geom_boxplot() +
+  labs(title = "ilrun isoform expression in some tissues", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_spleen_GSE61474.png", plot = plot_GSE62093, width = 15, height = 15, dpi = 600, units = "cm")
+
+
+```
+
+
+
+
+
+```{r merging data for tissue expression}
+
+whole_body <- bind_rows(GSE57982, GSE49379, GSE85241, GSE52463, GSE74896, GSE103001, GSE62093, GSE76404, GSE105127, GSE61474)
+
+whole_body_plot <- ggplot(whole_body, aes( x= isoform, y = expn)) +
+  geom_jitter(width = 0.2, size = 0.5) +
+  facet_wrap(~ tissue, nrow = 2) +
+  labs(title = "ilrun isoform expression in Homo sapiens", 
+       x = "ilrun isoform",
+       y = "transcript expression")
+
+ggsave(filename = "results/ilrun_expn_whole_body.png", plot = whole_body_plot, width = 18, height = 15, dpi = 600, units = "cm")
+
+```
 
